@@ -1,0 +1,393 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Calculadora de valor por m²</title>
+<meta name="description" content="Calculá el valor del m² cubierto y descubierto de una propiedad y compartí el resultado con un link.">
+<meta property="og:title" content="Calculadora de valor por m²">
+<meta property="og:description" content="Calculá el valor del m² cubierto y descubierto de una propiedad y compartí el resultado con un link.">
+<style>
+  :root {
+    --bg: #f1f5f9;
+    --card: #ffffff;
+    --text: #0f172a;
+    --muted: #64748b;
+    --accent: #2563eb;
+    --accent-soft: #dbeafe;
+    --border: #e2e8f0;
+    --danger: #dc2626;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+  }
+  .card {
+    background: var(--card);
+    width: 100%;
+    max-width: 470px;
+    border-radius: 16px;
+    box-shadow: 0 10px 30px rgba(15, 23, 42, .08);
+    padding: 32px 28px;
+  }
+  h1 { font-size: 1.4rem; margin-bottom: 4px; }
+  .subtitle { color: var(--muted); font-size: .9rem; margin-bottom: 24px; }
+  .field { margin-bottom: 16px; }
+  label { display: block; font-size: .85rem; font-weight: 600; margin-bottom: 6px; }
+  input {
+    width: 100%;
+    padding: 12px 14px;
+    font-size: 1rem;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    background: #f8fafc;
+    transition: border-color .15s, box-shadow .15s;
+  }
+  input:focus {
+    outline: none;
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px var(--accent-soft);
+    background: #fff;
+  }
+  .hint { font-size: .78rem; color: var(--muted); margin-top: 4px; }
+  .hint.error { color: var(--danger); }
+  .property {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    background: var(--accent-soft);
+    border-radius: 12px;
+    padding: 12px 14px;
+    margin-bottom: 20px;
+  }
+  .property[hidden] { display: none; }
+  .property-info { min-width: 0; }
+  .property-label { display: block; font-size: .75rem; color: var(--muted); }
+  .property-info strong { font-size: .95rem; overflow-wrap: break-word; }
+  .btn {
+    background: var(--accent);
+    color: #fff;
+    border: none;
+    border-radius: 10px;
+    padding: 10px 14px;
+    font-size: .9rem;
+    font-weight: 600;
+    text-decoration: none;
+    white-space: nowrap;
+    cursor: pointer;
+  }
+  .btn:hover { filter: brightness(.93); }
+  @media (max-width: 480px) {
+    .property .btn { flex: 1 0 100%; text-align: center; }
+  }
+  .results { margin-top: 16px; border-top: 1px solid var(--border); padding-top: 20px; }
+  .main-result { text-align: center; margin-bottom: 20px; }
+  .main-result .label { font-size: .85rem; color: var(--muted); margin-bottom: 2px; }
+  .main-result .value { font-size: 2.3rem; font-weight: 700; color: var(--accent); line-height: 1.2; }
+  .main-result .sub { font-size: .88rem; color: var(--muted); margin-top: 6px; }
+  .main-result .sub strong { color: var(--text); }
+  .row {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    font-size: .88rem;
+    padding: 7px 0;
+    border-bottom: 1px dashed var(--border);
+  }
+  .row:last-child { border-bottom: none; }
+  .row span:first-child { color: var(--muted); }
+  .row span:last-child { font-weight: 600; white-space: nowrap; }
+  .share { margin-top: 20px; border-top: 1px solid var(--border); padding-top: 20px; }
+  .share-row { display: flex; gap: 8px; }
+  .share-row input { flex: 1; min-width: 0; font-size: .8rem; }
+  .formula {
+    margin-top: 18px;
+    font-size: .78rem;
+    color: var(--muted);
+    text-align: center;
+    background: #f8fafc;
+    border-radius: 8px;
+    padding: 10px;
+  }
+</style>
+</head>
+<body>
+  <main class="card">
+    <h1>Calculadora de valor por m²</h1>
+    <p class="subtitle">El m² descubierto vale el 50% del m² cubierto.</p>
+
+    <div class="property" id="property" hidden>
+      <div class="property-info">
+        <span class="property-label">Propiedad en</span>
+        <strong id="propHost"></strong>
+      </div>
+      <a class="btn" id="propLink" href="#" target="_blank" rel="noopener noreferrer">Ver propiedad ↗</a>
+    </div>
+
+    <form id="form" autocomplete="off">
+      <div class="field">
+        <label for="propiedad">Link de la propiedad (opcional)</label>
+        <input type="url" id="propiedad" inputmode="url" placeholder="https://www.casaspropiedades.com.ar/p/…">
+        <p class="hint" id="propHint"></p>
+      </div>
+      <div class="field">
+        <label for="valor">Valor de la propiedad</label>
+        <input type="text" id="valor" inputmode="decimal" placeholder="Ej: 150000">
+        <p class="hint">En la moneda que uses (USD, pesos, etc.).</p>
+      </div>
+      <div class="field">
+        <label for="cubiertos">Metros cuadrados cubiertos</label>
+        <input type="text" id="cubiertos" inputmode="decimal" placeholder="Ej: 120">
+      </div>
+      <div class="field">
+        <label for="descubiertos">Metros cuadrados descubiertos</label>
+        <input type="text" id="descubiertos" inputmode="decimal" placeholder="Ej: 40">
+      </div>
+    </form>
+
+    <section class="results">
+      <div class="main-result">
+        <div class="label">Valor del m² cubierto</div>
+        <div class="value" id="resCubierto">—</div>
+        <div class="sub">Valor del m² descubierto: <strong id="resDescubierto">—</strong></div>
+      </div>
+      <div class="row">
+        <span>Superficie total</span>
+        <span id="resTotal">—</span>
+      </div>
+      <div class="row">
+        <span>Superficie equivalente (cubiertos + 50% descubiertos)</span>
+        <span id="resEquiv">—</span>
+      </div>
+    </section>
+
+    <section class="share" id="share" hidden>
+      <label for="shareLink">Link para compartir</label>
+      <div class="share-row">
+        <input type="text" id="shareLink" readonly>
+        <button type="button" class="btn" id="copyBtn">Copiar</button>
+      </div>
+    </section>
+
+    <p class="formula">m² cubierto = valor ÷ (m² cubiertos + m² descubiertos × 0,5)</p>
+  </main>
+
+<script>
+  const propEl = document.getElementById('propiedad');
+  const propHint = document.getElementById('propHint');
+  const propBanner = document.getElementById('property');
+  const propHost = document.getElementById('propHost');
+  const propLink = document.getElementById('propLink');
+  const valorEl = document.getElementById('valor');
+  const cubiertosEl = document.getElementById('cubiertos');
+  const descubiertosEl = document.getElementById('descubiertos');
+  const resCubierto = document.getElementById('resCubierto');
+  const resDescubierto = document.getElementById('resDescubierto');
+  const resTotal = document.getElementById('resTotal');
+  const resEquiv = document.getElementById('resEquiv');
+  const shareBox = document.getElementById('share');
+  const shareLink = document.getElementById('shareLink');
+  const copyBtn = document.getElementById('copyBtn');
+
+  const fmt = new Intl.NumberFormat('es-AR', { maximumFractionDigits: 2 });
+
+  // Acepta tanto "1500,50" como "1.500,50" o "1500.50"
+  function parseNum(texto) {
+    if (!texto) return NaN;
+    let s = texto.trim().replace(/[\s$]/g, '').replace(/us\$?/gi, '');
+    if (s.includes(',') && s.includes('.')) {
+      if (s.lastIndexOf(',') > s.lastIndexOf('.')) s = s.replace(/\./g, '').replace(',', '.');
+      else s = s.replace(/,/g, '');
+    } else if (s.includes(',')) {
+      s = s.replace(',', '.');
+    }
+    return Number(s);
+  }
+
+  function calcular() {
+    const valor = parseNum(valorEl.value);
+    const cubiertos = parseNum(cubiertosEl.value);
+    const descubiertos = parseNum(descubiertosEl.value);
+
+    const equivalente = cubiertos + descubiertos * 0.5;
+
+    if (!(valor > 0) || !(cubiertos >= 0) || !(descubiertos >= 0) || !(equivalente > 0) || Number.isNaN(equivalente)) {
+      resCubierto.textContent = '—';
+      resDescubierto.textContent = '—';
+      resTotal.textContent = '—';
+      resEquiv.textContent = '—';
+      return;
+    }
+
+    const precioCubierto = valor / equivalente;
+    const precioDescubierto = precioCubierto / 2;
+
+    resCubierto.textContent = fmt.format(precioCubierto);
+    resDescubierto.textContent = fmt.format(precioDescubierto);
+    resTotal.textContent = fmt.format(cubiertos + descubiertos) + ' m²';
+    resEquiv.textContent = fmt.format(equivalente) + ' m²';
+  }
+
+  // <pure> (sin DOM: el test de Node extrae este bloque)
+
+  // Prefijos de URL que se reemplazan por una letra (A = índice 0, B = 1, ...).
+  // Solo se agregan al final: cambiar el orden rompería los links ya compartidos.
+  const PREFIXES = [
+    'https://www.casaspropiedades.com.ar/p/',
+    'https://www.zonaprop.com.ar/',
+    'https://www.argenprop.com/',
+    'https://www.',
+    'https://',
+    'http://www.',
+    'http://',
+  ];
+  const MAX_PARAM = 4096;
+
+  // Devuelve la URL normalizada o null si no es http(s) válida.
+  function normalizeUrl(texto) {
+    let s = (texto || '').trim();
+    if (!s) return null;
+    if (!/^[a-z][a-z0-9+.-]*:/i.test(s)) s = 'https://' + s;
+    try {
+      const u = new URL(s);
+      return u.protocol === 'http:' || u.protocol === 'https:' ? u.href : null;
+    } catch {
+      return null;
+    }
+  }
+
+  const toB64Url = bytes =>
+    btoa(String.fromCharCode(...bytes)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+  const fromB64Url = s =>
+    Uint8Array.from(atob(s.replace(/-/g, '+').replace(/_/g, '/')), c => c.charCodeAt(0));
+
+  async function pipeBytes(bytes, transform) {
+    const out = new Blob([bytes]).stream().pipeThrough(transform);
+    return new Uint8Array(await new Response(out).arrayBuffer());
+  }
+
+  // Devuelve [nombreDelParam, valor]: "z" si deflate achicó el resultado, "p" si no.
+  async function packUrl(url) {
+    let idx = -1;
+    PREFIXES.forEach((p, i) => {
+      if (url.startsWith(p) && (idx < 0 || p.length > PREFIXES[idx].length)) idx = i;
+    });
+    const code = String.fromCharCode(65 + idx);
+    const body = url.slice(PREFIXES[idx].length);
+    const plain = ['p', code + encodeURIComponent(body).replace(/%2F/gi, '/')];
+    if (typeof CompressionStream === 'undefined') return plain;
+    try {
+      const bytes = await pipeBytes(new TextEncoder().encode(body), new CompressionStream('deflate-raw'));
+      const z = code + toB64Url(bytes);
+      return z.length < plain[1].length ? ['z', z] : plain;
+    } catch {
+      return plain;
+    }
+  }
+
+  // Inversa de packUrl. Devuelve la URL o null si el valor es inválido/corrupto.
+  async function unpackUrl(name, value) {
+    if (!value || value.length > MAX_PARAM) return null;
+    const prefix = PREFIXES[value.charCodeAt(0) - 65];
+    if (prefix === undefined) return null;
+    const rest = value.slice(1);
+    try {
+      const body = name === 'z'
+        ? new TextDecoder().decode(await pipeBytes(fromB64Url(rest), new DecompressionStream('deflate-raw')))
+        : rest;
+      return body.length > MAX_PARAM ? null : normalizeUrl(prefix + body);
+    } catch {
+      return null;
+    }
+  }
+
+  // </pure>
+
+  const NUM_PARAMS = [['v', valorEl], ['c', cubiertosEl], ['d', descubiertosEl]];
+  const HINT_PROP = 'Opcional. Viaja dentro del link para compartir.';
+
+  function actualizarPropiedad(errorExtra = '') {
+    const raw = propEl.value.trim();
+    const url = normalizeUrl(raw);
+    const error = errorExtra || (raw && !url ? 'No parece una URL válida (solo http o https).' : '');
+    propBanner.hidden = !url;
+    if (url) {
+      propLink.href = url;
+      propHost.textContent = new URL(url).host.replace(/^www\./, '');
+    }
+    propHint.textContent = error || HINT_PROP;
+    propHint.classList.toggle('error', !!error);
+  }
+
+  async function buildShareLink() {
+    const parts = [];
+    const url = normalizeUrl(propEl.value);
+    if (url) {
+      const [name, value] = await packUrl(url);
+      parts.push(name + '=' + value);
+    }
+    for (const [name, el] of NUM_PARAMS) {
+      const n = parseNum(el.value);
+      if (Number.isFinite(n) && n >= 0) parts.push(name + '=' + encodeURIComponent(String(n)));
+    }
+    return parts.length ? location.href.split(/[?#]/)[0] + '?' + parts.join('&') : '';
+  }
+
+  let shareSeq = 0;
+  async function actualizarShare() {
+    const seq = ++shareSeq;
+    const link = await buildShareLink();
+    if (seq !== shareSeq) return; // llegó una actualización más nueva
+    shareBox.hidden = !link;
+    shareLink.value = link;
+  }
+
+  async function cargarDesdeQuery() {
+    const q = new URLSearchParams(location.search);
+    for (const [name, el] of NUM_PARAMS) {
+      const v = q.get(name);
+      if (v !== null) el.value = v.slice(0, 32);
+    }
+    const name = q.has('z') ? 'z' : q.has('p') ? 'p' : null;
+    let error = '';
+    if (name) {
+      const url = await unpackUrl(name, q.get(name));
+      if (url) propEl.value = url;
+      else error = 'No se pudo leer el link de la propiedad.';
+    }
+    calcular();
+    actualizarPropiedad(error);
+    actualizarShare();
+  }
+
+  copyBtn.addEventListener('click', async () => {
+    let ok = true;
+    try {
+      await navigator.clipboard.writeText(shareLink.value);
+    } catch {
+      shareLink.select();
+      ok = document.execCommand('copy');
+    }
+    copyBtn.textContent = ok ? '¡Copiado!' : 'Copiá con Ctrl+C';
+    setTimeout(() => { copyBtn.textContent = 'Copiar'; }, 1500);
+  });
+
+  [valorEl, cubiertosEl, descubiertosEl].forEach(el => {
+    el.addEventListener('input', calcular);
+    el.addEventListener('input', actualizarShare);
+  });
+  propEl.addEventListener('input', () => { actualizarPropiedad(); actualizarShare(); });
+  document.getElementById('form').addEventListener('submit', e => e.preventDefault());
+  cargarDesdeQuery();
+</script>
+</body>
+</html>
